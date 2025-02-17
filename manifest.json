@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Web Annotator",
+  "version": "1.0",
+  "description": "在网页上添加笔记和标注的Chrome扩展",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting",
+    "downloads"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "css": ["styles.css"],
+      "js": [
+        "html2canvas.min.js",
+        "content.js"
+      ]
+    }
+  ]
+} 

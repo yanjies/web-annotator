@@ -1,0 +1,40 @@
+.toolbar {
+  width: 200px;
+  padding: 10px;
+}
+
+.toolbar button {
+  margin: 5px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.annotation-highlight {
+  background-color: yellow;
+  opacity: 0.5;
+}
+
+.annotation-underline {
+  border-bottom: 2px solid black;
+}
+
+.annotation-wavy {
+  border-bottom: 2px wavy red;
+}
+
+.annotation-textbox {
+  position: absolute;
+  border: 1px solid #ccc;
+  padding: 5px;
+  background: white;
+  min-width: 100px;
+  min-height: 50px;
+  resize: both;
+  overflow: auto;
+}
+
+.drawing-canvas {
+  position: absolute;
+  pointer-events: none;
+  z-index: 9999;
+} 
