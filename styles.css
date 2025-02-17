@@ -10,8 +10,8 @@
 }
 
 .annotation-highlight {
-  background-color: yellow;
-  opacity: 0.5;
+  background-color: #ffeb3b !important;
+  opacity: 0.7 !important;
 }
 
 .annotation-underline {
@@ -27,21 +27,45 @@
 
 .annotation-textbox {
   position: absolute;
-  border: 1px solid #ccc;
-  padding: 5px;
-  background: white;
-  min-width: 100px;
-  min-height: 50px;
+  border: 1px dashed #4285f4;
+  padding: 8px;
+  min-width: 120px;
+  min-height: 60px;
   resize: both;
   overflow: auto;
   cursor: text;
   z-index: 9998;
+  background-color: transparent !important;
+  color: #000;
+  font-size: 14px;
+  line-height: 1.5;
+  transition: border-color 0.2s;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  max-width: 500px;
+  box-sizing: border-box;
+}
+
+.annotation-textbox:empty::before {
+  content: '点击输入文本...';
+  color: #999;
+  pointer-events: none;
 }
 
 .annotation-textbox:focus {
   outline: none;
-  border-color: #1a73e8;
-  box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+  border-color: #4285f4;
+  border-style: solid;
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.annotation-textbox.dragging {
+  cursor: move;
+  opacity: 0.8;
+  max-width: none;
+  width: var(--original-width);
+  height: var(--original-height);
+  resize: none;
 }
 
 .drawing-canvas {
@@ -54,14 +78,48 @@
   position: fixed;
   right: 20px;
   top: 50%;
-  transform: translateY(-50%);
+  transform: translateY(-50%) rotate(135deg);
   z-index: 10000;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 50%;
-  width: 50px;
-  height: 50px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  width: 60px;
+  height: 14px;
   cursor: move;
+  transform-origin: center;
+  transition: transform 0.3s;
+}
+
+/* 笔身 */
+.floating-ball::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to right, #4285f4, #5c9cff);
+  border-radius: 7px;
+  box-shadow: 
+    0 2px 10px rgba(0, 0, 0, 0.2),
+    inset -2px -2px 4px rgba(0, 0, 0, 0.1),
+    inset 2px 2px 4px rgba(255, 255, 255, 0.3);
+}
+
+/* 笔尖 */
+.floating-ball::after {
+  content: '';
+  position: absolute;
+  right: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: 12px solid #4285f4;
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+  filter: drop-shadow(2px 2px 2px rgba(0, 0, 0, 0.1));
+}
+
+.floating-ball:hover {
+  transform: translateY(-50%) rotate(135deg) scale(1.05);
 }
 
 .floating-ball.dragging .ball-menu {
@@ -70,15 +128,15 @@
 
 .ball-menu {
   position: absolute;
-  right: 60px;
+  right: 70px;
   top: 50%;
-  transform: translateY(-50%);
+  transform: translateY(-50%) rotate(-135deg);
   background: white;
-  border-radius: 8px;
-  padding: 10px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   display: none;
-  min-width: 40px;
+  min-width: 44px;
 }
 
 .ball-menu hr {
@@ -88,15 +146,8 @@
 }
 
 .tool-btn {
-  display: block;
-  width: 30px;
-  height: 30px;
-  margin: 5px;
-  border: none;
-  background: none;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: background-color 0.2s;
+  transform: rotate(0deg);
+  margin: 8px 4px;
 }
 
 .tool-btn:hover {

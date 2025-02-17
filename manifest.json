@@ -9,7 +9,13 @@
     "scripting",
     "downloads"
   ],
+  "icons": {
+    "16": "images/icon.svg",
+    "48": "images/icon.svg",
+    "128": "images/icon.svg"
+  },
   "action": {
+    "default_icon": "images/icon.svg",
     "default_popup": "popup.html"
   },
   "background": {
@@ -20,7 +26,7 @@
       "matches": ["<all_urls>"],
       "css": ["styles.css"],
       "js": [
-        "html2canvas.min.js",
+        "html2pdf.bundle.min.js",
         "content.js"
       ]
     }

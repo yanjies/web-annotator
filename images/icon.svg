@@ -1,0 +1,17 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- 纸张背景 -->
+  <rect x="24" y="16" width="80" height="96" rx="4" fill="#ffffff" stroke="#4285f4" stroke-width="4"/>
+  <!-- 标注线条 -->
+  <line x1="36" y1="40" x2="92" y2="40" stroke="#fbbc05" stroke-width="3"/>
+  <line x1="36" y1="56" x2="92" y2="56" stroke="#34a853" stroke-width="2" stroke-dasharray="4,4"/>
+  <line x1="36" y1="72" x2="72" y2="72" stroke="#ea4335" stroke-width="3"/>
+  <!-- 铅笔 -->
+  <g transform="rotate(-45, 84, 84)">
+    <rect x="64" y="74" width="40" height="12" rx="2" fill="#4285f4"/>
+    <path d="M100,74 L108,80 L100,86 Z" fill="#4285f4"/>
+    <rect x="66" y="76" width="36" height="8" fill="#ffffff" opacity="0.3"/>
+  </g>
+  <!-- 高光效果 -->
+  <rect x="28" y="20" width="2" height="88" fill="#ffffff" opacity="0.5"/>
+  <rect x="24" y="20" width="76" height="2" fill="#ffffff" opacity="0.5"/>
+</svg> 

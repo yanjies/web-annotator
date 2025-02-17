@@ -151,16 +151,32 @@ class WebAnnotator {
   createTextBox(e) {
     const textBox = document.createElement('div');
     textBox.className = 'annotation-textbox';
-    textBox.contentEditable = true;
-    textBox.style.left = e.pageX + 'px';
-    textBox.style.top = e.pageY + 'px';
+    textBox.contentEditable = 'true';
+    textBox.spellcheck = false;
+    
+    // 添加唯一标识
+    const textboxId = 'textbox-' + Date.now();
+    textBox.dataset.textboxId = textboxId;
+    
+    // 设置初始位置
+    textBox.style.left = `${e.pageX}px`;
+    textBox.style.top = `${e.pageY}px`;
+    
     document.body.appendChild(textBox);
-    textBox.focus();
+    
+    // 确保文本框可以立即获得焦点
+    setTimeout(() => {
+      textBox.focus();
+    }, 0);
 
     // 添加到历史记录
     this.addToHistory({
       type: 'textbox',
-      element: textBox
+      element: textBox,
+      position: {
+        x: e.pageX,
+        y: e.pageY
+      }
     });
 
     // 添加拖动功能
@@ -173,8 +189,8 @@ class WebAnnotator {
     let boxStartX, boxStartY;
 
     textBox.addEventListener('mousedown', (e) => {
-      // 如果是在编辑文本，不启动拖拽
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || window.getSelection().toString()) {
+      // 只有在没有选中文本时才允许拖拽
+      if (window.getSelection().toString()) {
         return;
       }
       
@@ -185,12 +201,10 @@ class WebAnnotator {
       boxStartX = rect.left;
       boxStartY = rect.top;
       
-      // 添加临时样式
-      textBox.style.cursor = 'move';
-      textBox.style.userSelect = 'none';
-      
-      // 防止文本选择
-      e.preventDefault();
+      // 保存原始尺寸
+      textBox.style.setProperty('--original-width', `${rect.width}px`);
+      textBox.style.setProperty('--original-height', `${rect.height}px`);
+      textBox.classList.add('dragging');
     });
 
     document.addEventListener('mousemove', (e) => {
@@ -206,8 +220,10 @@ class WebAnnotator {
     document.addEventListener('mouseup', () => {
       if (isDragging) {
         isDragging = false;
-        textBox.style.cursor = 'text';
-        textBox.style.userSelect = 'text';
+        textBox.classList.remove('dragging');
+        // 移除临时样式属性
+        textBox.style.removeProperty('--original-width');
+        textBox.style.removeProperty('--original-height');
       }
     });
 
@@ -341,7 +357,6 @@ class WebAnnotator {
 
     try {
       if (lastAction.type === 'span') {
-        // 恢复到之前的文档状态
         const oldContent = lastAction.documentState;
         const currentScroll = {
           x: window.scrollX,
@@ -351,11 +366,17 @@ class WebAnnotator {
         // 保存当前选中的工具
         const currentTool = this.currentTool;
         
+        // 移除所有现有的浮动球和画布
+        document.querySelectorAll('.floating-ball, .drawing-canvas').forEach(el => el.remove());
+        
         // 替换整个 body 内容
         document.body.replaceWith(oldContent);
         
-        // 重新初始化注释器
+        // 重新初始化注释器，但不创建新的浮动球
         this.init();
+        
+        // 重新创建单个浮动球
+        this.floatingBall = null; // 确保清除旧的引用
         this.initFloatingBall();
         
         // 恢复工具选择状态
@@ -370,6 +391,11 @@ class WebAnnotator {
       }
     } catch (error) {
       console.error('撤销失败:', error);
+      // 发生错误时，确保清理所有多余的浮动球
+      const balls = document.querySelectorAll('.floating-ball');
+      if (balls.length > 1) {
+        Array.from(balls).slice(1).forEach(ball => ball.remove());
+      }
     }
   }
 
@@ -389,68 +415,98 @@ class WebAnnotator {
         transform: translate(-50%, -50%);
         background: white;
         padding: 20px;
-        border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
         z-index: 10001;
+        display: flex;
+        gap: 20px;
+        max-width: 1200px;
+        width: 90%;
       `;
-      dialog.innerHTML = `
-        <h3 style="margin-top: 0;">导出PDF设置</h3>
-        <div style="margin: 10px 0;">
-          <label>文件名：</label>
-          <input type="text" id="pdf-filename" value="webpage-annotated.pdf" style="width: 200px;">
-        </div>
-        <div style="margin: 10px 0;">
-          <label>页面范围：</label>
-          <input type="text" id="pdf-range" placeholder="例如：1-5" style="width: 100px;">
-          <div style="font-size: 12px; color: #666; margin-top: 5px;">
-            留空表示导出全部页面<br>
-            支持格式：2-5 或 1,3,5-7
+
+      // 设置面板
+      const settingsPanel = `
+        <div class="settings-panel">
+          <h3 style="margin-top: 0;">打印设置</h3>
+          <div style="margin: 15px 0;">
+            <p style="color: #666; margin-bottom: 15px;">
+              1. 点击"确定"后将打开打印对话框<br>
+              2. 在打印对话框中选择"另存为 PDF"<br>
+              3. 在"更多设置"中选择"边距"为"自定义"<br>
+              4. 设置合适的边距后点击"保存"
+            </p>
+          </div>
+          <div style="text-align: right; margin-top: 20px;">
+            <button id="cancel-pdf" style="margin-right: 10px;">取消</button>
+            <button id="confirm-pdf" style="background: #4285f4; color: white; border: none; padding: 8px 16px; border-radius: 4px;">确定</button>
           </div>
         </div>
-        <div style="margin: 10px 0;">
-          <label>页面边距(mm)：</label>
-          <div style="display: grid; grid-template-columns: auto auto; gap: 5px; margin-top: 5px;">
-            <label>左边距：</label>
-            <input type="number" id="margin-left" value="20" min="0" style="width: 60px;">
-            <label>右边距：</label>
-            <input type="number" id="margin-right" value="20" min="0" style="width: 60px;">
+      `;
+
+      // 右侧预览面板
+      const previewPanel = `
+        <div class="preview-panel" style="border-left: 1px solid #eee; padding-left: 20px;">
+          <h3 style="margin-top: 0;">预览</h3>
+          <div id="pdf-preview" style="
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 20px;
+            height: 500px;
+            overflow: auto;
+            background: #f8f9fa;
+            position: relative;
+          ">
+            <div id="preview-content" style="
+              background: white;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+              position: relative;
+            ">
+              ${this.getCleanContent()}
+            </div>
           </div>
         </div>
-        <div style="text-align: right; margin-top: 15px;">
-          <button id="cancel-pdf" style="margin-right: 10px;">取消</button>
-          <button id="confirm-pdf">确定</button>
-        </div>
       `;
+
+      dialog.innerHTML = settingsPanel + previewPanel;
       document.body.appendChild(dialog);
 
       const cancelBtn = dialog.querySelector('#cancel-pdf');
       const confirmBtn = dialog.querySelector('#confirm-pdf');
-      const filenameInput = dialog.querySelector('#pdf-filename');
-      const rangeInput = dialog.querySelector('#pdf-range');
-      const marginLeftInput = dialog.querySelector('#margin-left');
-      const marginRightInput = dialog.querySelector('#margin-right');
 
       confirmBtn.onclick = () => {
-        const filename = filenameInput.value.trim();
-        const range = rangeInput.value.trim();
-        const marginLeft = marginLeftInput.value;
-        const marginRight = marginRightInput.value;
-        
-        if (!filename) {
-          alert('请输入文件名');
-          return;
-        }
-
         // 创建打印样式
         const style = document.createElement('style');
         style.id = 'print-style';
         style.textContent = `
           @media print {
-            @page {
-              margin-left: ${marginLeft}mm !important;
-              margin-right: ${marginRight}mm !important;
+            /* 隐藏不需要的元素 */
+            .floating-ball, .ball-menu, .drawing-canvas {
+              display: none !important;
             }
-            ${range ? this.generatePrintRangeCSS(range) : ''}
+            /* 确保文本框可见 */
+            .annotation-textbox {
+              break-inside: avoid;
+              position: absolute;
+              border: 1px solid #4285f4;
+              background: white !important;
+              color: black !important;
+              opacity: 1 !important;
+              visibility: visible !important;
+            }
+            /* 确保注释样式正确 */
+            .annotation-highlight {
+              background-color: #ffeb3b !important;
+              opacity: 0.7 !important;
+              -webkit-print-color-adjust: exact !important;
+              color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            .annotation-underline {
+              border-bottom: 2px solid black !important;
+            }
+            .annotation-wavy {
+              border-bottom: 2px wavy red !important;
+            }
           }
         `;
         document.head.appendChild(style);
@@ -459,10 +515,12 @@ class WebAnnotator {
         window.print();
 
         // 清理打印样式
-        const printStyle = document.getElementById('print-style');
-        if (printStyle) {
-          printStyle.remove();
-        }
+        setTimeout(() => {
+          const printStyle = document.getElementById('print-style');
+          if (printStyle) {
+            printStyle.remove();
+          }
+        }, 0);
       };
 
       cancelBtn.onclick = () => {
@@ -471,29 +529,53 @@ class WebAnnotator {
     }
   }
 
-  generatePrintRangeCSS(range) {
-    const ranges = range.split(',').map(r => r.trim());
-    const pageSelectors = ranges.map(r => {
-      if (r.includes('-')) {
-        const [start, end] = r.split('-').map(Number);
-        return Array.from(
-          { length: end - start + 1 },
-          (_, i) => `@page :nth(${start + i})`
-        ).join(',');
+  // 添加页面范围解析方法
+  parsePageRange(range) {
+    return range.split(',').map(part => {
+      if (part.includes('-')) {
+        const [start, end] = part.split('-').map(Number);
+        return `${start}-${end}`;
       }
-      return `@page :nth(${r})`;
-    });
+      return part.trim();
+    }).join(',');
+  }
 
-    return `
-      @media print {
-        ${pageSelectors.join(',')} {
-          display: block;
-        }
-        @page :not(${pageSelectors.join(',')}) {
-          display: none;
-        }
+  // 添加获取清理后内容的方法
+  getCleanContent() {
+    // 克隆当前页面内容
+    const tempContainer = document.createElement('div');
+    tempContainer.innerHTML = document.body.innerHTML;
+    
+    // 移除不需要的元素
+    tempContainer.querySelectorAll('.floating-ball, #print-style, script, .ball-menu').forEach(el => el.remove());
+    
+    // 处理文本框
+    tempContainer.querySelectorAll('.annotation-textbox').forEach(textBox => {
+      // 保持文本框的样式和内容
+      textBox.style.position = 'absolute';
+      textBox.style.resize = 'none';
+      textBox.style.backgroundColor = 'white';
+      textBox.contentEditable = 'false';
+      
+      // 保持原始位置
+      const originalBox = document.querySelector(`[data-textbox-id="${textBox.dataset.textboxId}"]`);
+      if (originalBox) {
+        const rect = originalBox.getBoundingClientRect();
+        textBox.style.left = `${rect.left + window.scrollX}px`;
+        textBox.style.top = `${rect.top + window.scrollY}px`;
+        textBox.style.width = `${rect.width}px`;
+        textBox.style.height = `${rect.height}px`;
       }
-    `;
+      
+      // 确保文本框内容可见
+      textBox.style.opacity = '1';
+      textBox.style.visibility = 'visible';
+      textBox.style.display = 'block';
+      textBox.style.boxSizing = 'border-box';
+      textBox.style.zIndex = '1';
+    });
+    
+    return tempContainer.innerHTML;
   }
 }
 
