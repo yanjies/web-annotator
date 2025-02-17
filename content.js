@@ -14,14 +14,28 @@ class WebAnnotator {
     
     this.annotationHistory = [];
     
-    this.init();
-    this.initFloatingBall();
+    // 等待 DOM 完全加载后再初始化
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        this.init();
+        this.initFloatingBall();
+      });
+    } else {
+      this.init();
+      this.initFloatingBall();
+    }
     
     // 添加键盘快捷键监听
     document.addEventListener('keydown', this.handleKeyboard.bind(this));
   }
 
   init() {
+    // 确保 body 存在
+    if (!document.body) {
+      console.error('Body element not found');
+      return;
+    }
+
     // 创建绘图画布
     this.canvas = document.createElement('canvas');
     this.canvas.classList.add('drawing-canvas');
