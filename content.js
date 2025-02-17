@@ -76,59 +76,56 @@ class WebAnnotator {
           break;
       }
 
-      // 检查选中范围内是否已有注释
-      const existingAnnotations = this.findExistingAnnotations(range);
+      // 保存整个文档的当前状态
+      const documentState = document.body.cloneNode(true);
       
-      // 添加到历史记录，包含已存在的注释信息
+      // 记录选择范围的文本内容和位置
+      const selectionInfo = {
+        text: range.toString(),
+        startContainer: this.getNodePath(range.startContainer),
+        startOffset: range.startOffset,
+        endContainer: this.getNodePath(range.endContainer),
+        endOffset: range.endOffset
+      };
+
+      // 添加到历史记录
       this.addToHistory({
         type: 'span',
-        element: span,
-        content: range.toString(),
-        existingAnnotations: existingAnnotations
-      });
-      
-      // 移除已存在的注释
-      existingAnnotations.forEach(annotation => {
-        const text = document.createTextNode(annotation.textContent);
-        annotation.parentNode.replaceChild(text, annotation);
+        documentState: documentState,
+        selectionInfo: selectionInfo
       });
 
-      // 使用 extractContents 和 appendChild 替代 surroundContents
+      // 创建新注释
       const fragment = range.extractContents();
       span.appendChild(fragment);
       range.insertNode(span);
       
-      // 清除选择
       selection.removeAllRanges();
     } catch (error) {
       console.error('注释失败:', error);
     }
   }
 
-  findExistingAnnotations(range) {
-    const annotations = [];
-    const walker = document.createTreeWalker(
-      range.commonAncestorContainer,
-      NodeFilter.SHOW_ELEMENT,
-      {
-        acceptNode: function(node) {
-          return node.classList && 
-                 (node.classList.contains('annotation-highlight') ||
-                  node.classList.contains('annotation-underline') ||
-                  node.classList.contains('annotation-wavy'))
-            ? NodeFilter.FILTER_ACCEPT
-            : NodeFilter.FILTER_SKIP;
-        }
-      }
-    );
-
-    let node;
-    while (node = walker.nextNode()) {
-      if (range.intersectsNode(node)) {
-        annotations.push(node);
-      }
+  // 获取节点的路径
+  getNodePath(node) {
+    const path = [];
+    while (node && node.parentNode) {
+      const parent = node.parentNode;
+      const children = Array.from(parent.childNodes);
+      path.unshift(children.indexOf(node));
+      node = parent;
     }
-    return annotations;
+    return path;
+  }
+
+  // 根据路径获取节点
+  getNodeFromPath(path) {
+    let node = document.body;
+    for (let index of path) {
+      node = node.childNodes[index];
+      if (!node) return null;
+    }
+    return node;
   }
 
   startDrawing(e) {
@@ -339,37 +336,40 @@ class WebAnnotator {
   }
 
   undo() {
-    console.log('Undo called, history:', this.annotationHistory);
     const lastAction = this.annotationHistory.pop();
-    if (lastAction) {
-      console.log('Undoing action:', lastAction);
-      try {
-        if (lastAction.type === 'span') {
-          const span = lastAction.element;
-          if (span && span.parentNode) {
-            const text = document.createTextNode(lastAction.content);
-            span.parentNode.replaceChild(text, span);
-            
-            // 恢复之前存在的注释
-            if (lastAction.existingAnnotations) {
-              lastAction.existingAnnotations.forEach(oldAnnotation => {
-                const range = document.createRange();
-                range.setStart(text, 0);
-                range.setEnd(text, text.length);
-                const newAnnotation = document.createElement('span');
-                newAnnotation.className = oldAnnotation.className;
-                range.surroundContents(newAnnotation);
-              });
-            }
-          }
-        } else if (lastAction.type === 'textbox') {
-          if (lastAction.element && lastAction.element.parentNode) {
-            lastAction.element.remove();
-          }
+    if (!lastAction) return;
+
+    try {
+      if (lastAction.type === 'span') {
+        // 恢复到之前的文档状态
+        const oldContent = lastAction.documentState;
+        const currentScroll = {
+          x: window.scrollX,
+          y: window.scrollY
+        };
+        
+        // 保存当前选中的工具
+        const currentTool = this.currentTool;
+        
+        // 替换整个 body 内容
+        document.body.replaceWith(oldContent);
+        
+        // 重新初始化注释器
+        this.init();
+        this.initFloatingBall();
+        
+        // 恢复工具选择状态
+        this.setCurrentTool(currentTool);
+        
+        // 恢复滚动位置
+        window.scrollTo(currentScroll.x, currentScroll.y);
+      } else if (lastAction.type === 'textbox') {
+        if (lastAction.element && lastAction.element.parentNode) {
+          lastAction.element.remove();
         }
-      } catch (error) {
-        console.error('撤销失败:', error);
       }
+    } catch (error) {
+      console.error('撤销失败:', error);
     }
   }
 
@@ -378,7 +378,7 @@ class WebAnnotator {
     menu.style.display = show ? 'block' : 'none';
   }
 
-  // 简化导出处理方法
+  // 修改导出处理方法
   handleExport(action) {
     if (action === 'save-pdf') {
       const dialog = document.createElement('div');
@@ -407,6 +407,15 @@ class WebAnnotator {
             支持格式：2-5 或 1,3,5-7
           </div>
         </div>
+        <div style="margin: 10px 0;">
+          <label>页面边距(mm)：</label>
+          <div style="display: grid; grid-template-columns: auto auto; gap: 5px; margin-top: 5px;">
+            <label>左边距：</label>
+            <input type="number" id="margin-left" value="20" min="0" style="width: 60px;">
+            <label>右边距：</label>
+            <input type="number" id="margin-right" value="20" min="0" style="width: 60px;">
+          </div>
+        </div>
         <div style="text-align: right; margin-top: 15px;">
           <button id="cancel-pdf" style="margin-right: 10px;">取消</button>
           <button id="confirm-pdf">确定</button>
@@ -418,36 +427,46 @@ class WebAnnotator {
       const confirmBtn = dialog.querySelector('#confirm-pdf');
       const filenameInput = dialog.querySelector('#pdf-filename');
       const rangeInput = dialog.querySelector('#pdf-range');
-
-      cancelBtn.onclick = () => {
-        dialog.remove();
-      };
+      const marginLeftInput = dialog.querySelector('#margin-left');
+      const marginRightInput = dialog.querySelector('#margin-right');
 
       confirmBtn.onclick = () => {
         const filename = filenameInput.value.trim();
         const range = rangeInput.value.trim();
+        const marginLeft = marginLeftInput.value;
+        const marginRight = marginRightInput.value;
         
         if (!filename) {
           alert('请输入文件名');
           return;
         }
 
-        // 设置打印范围
-        if (range) {
-          const style = document.createElement('style');
-          style.id = 'print-range-style';
-          style.textContent = this.generatePrintRangeCSS(range);
-          document.head.appendChild(style);
-        }
+        // 创建打印样式
+        const style = document.createElement('style');
+        style.id = 'print-style';
+        style.textContent = `
+          @media print {
+            @page {
+              margin-left: ${marginLeft}mm !important;
+              margin-right: ${marginRight}mm !important;
+            }
+            ${range ? this.generatePrintRangeCSS(range) : ''}
+          }
+        `;
+        document.head.appendChild(style);
 
         dialog.remove();
         window.print();
 
         // 清理打印样式
-        const printStyle = document.getElementById('print-range-style');
+        const printStyle = document.getElementById('print-style');
         if (printStyle) {
           printStyle.remove();
         }
+      };
+
+      cancelBtn.onclick = () => {
+        dialog.remove();
       };
     }
   }
