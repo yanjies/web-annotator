@@ -19,7 +19,10 @@
 }
 
 .annotation-wavy {
+  text-decoration: wavy underline red;
+  text-decoration-skip-ink: none;
   border-bottom: 2px wavy red;
+  display: inline;
 }
 
 .annotation-textbox {
@@ -31,10 +34,90 @@
   min-height: 50px;
   resize: both;
   overflow: auto;
+  cursor: text;
+  z-index: 9998;
+}
+
+.annotation-textbox:focus {
+  outline: none;
+  border-color: #1a73e8;
+  box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
 }
 
 .drawing-canvas {
   position: absolute;
   pointer-events: none;
   z-index: 9999;
+}
+
+.floating-ball {
+  position: fixed;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10000;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  cursor: move;
+}
+
+.floating-ball.dragging .ball-menu {
+  display: none;
+}
+
+.ball-menu {
+  position: absolute;
+  right: 60px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: white;
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  display: none;
+  min-width: 40px;
+}
+
+.ball-menu hr {
+  margin: 5px 0;
+  border: none;
+  border-top: 1px solid #eee;
+}
+
+.tool-btn {
+  display: block;
+  width: 30px;
+  height: 30px;
+  margin: 5px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.tool-btn:hover {
+  background: #f0f0f0;
+}
+
+.tool-btn.active {
+  background: #e6f3ff;
+  box-shadow: 0 0 0 2px #1a73e8;
+}
+
+/* 导出按钮特殊样式 */
+.tool-btn[data-action] {
+  background: #f8f9fa;
+}
+
+.tool-btn[data-action]:hover {
+  background: #f0f0f0;
+}
+
+.annotation-wavy {
+  text-decoration: wavy underline red;
+  text-decoration-skip-ink: none;
 } 
