@@ -380,18 +380,31 @@ class WebAnnotator {
         // 保存当前选中的工具
         const currentTool = this.currentTool;
         
-        // 移除所有现有的浮动球和画布
-        document.querySelectorAll('.floating-ball, .drawing-canvas').forEach(el => el.remove());
+        // 保存当前浮动球的位置
+        const ballRect = this.floatingBall.getBoundingClientRect();
+        const ballPosition = {
+          left: this.floatingBall.style.left || `${ballRect.right - 20}px`,
+          top: this.floatingBall.style.top || '50%'
+        };
+        
+        // 移除所有现有的浮动球
+        document.querySelectorAll('.floating-ball').forEach(el => el.remove());
+        
+        // 克隆 oldContent 并移除其中的浮动球
+        const cleanContent = oldContent.cloneNode(true);
+        cleanContent.querySelectorAll('.floating-ball').forEach(el => el.remove());
         
         // 替换整个 body 内容
-        document.body.replaceWith(oldContent);
+        document.body.replaceWith(cleanContent);
         
-        // 重新初始化注释器，但不创建新的浮动球
+        // 重新初始化注释器
         this.init();
         
-        // 重新创建单个浮动球
-        this.floatingBall = null; // 确保清除旧的引用
+        // 创建新的浮动球并设置到原来的位置
+        this.floatingBall = null;
         this.initFloatingBall();
+        this.floatingBall.style.left = ballPosition.left;
+        this.floatingBall.style.top = ballPosition.top;
         
         // 恢复工具选择状态
         this.setCurrentTool(currentTool);
@@ -405,11 +418,11 @@ class WebAnnotator {
       }
     } catch (error) {
       console.error('撤销失败:', error);
-      // 发生错误时，确保清理所有多余的浮动球
-      const balls = document.querySelectorAll('.floating-ball');
-      if (balls.length > 1) {
-        Array.from(balls).slice(1).forEach(ball => ball.remove());
-      }
+      // 发生错误时，确保清理所有浮动球
+      document.querySelectorAll('.floating-ball').forEach(el => el.remove());
+      // 重新创建一个浮动球
+      this.floatingBall = null;
+      this.initFloatingBall();
     }
   }
 
